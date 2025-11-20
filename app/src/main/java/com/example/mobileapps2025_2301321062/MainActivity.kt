@@ -26,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,12 +35,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -49,6 +54,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.mobileapps2025_2301321062.ui.theme.MobileApps20252301321062Theme
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import java.util.UUID
+import kotlin.random.Random
 
 data class Event(
     val id: String,
@@ -57,6 +64,15 @@ data class Event(
     val location: String,
     val price: String,
     val description: String
+)
+
+data class Ticket(
+    val id: String,
+    val eventId: String,
+    val seat: String,
+    val qrCode: String,
+    val eventName: String,
+    val eventDate: String
 )
 
 val mockEvents = listOf(
@@ -69,41 +85,52 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        val dbHelper = DatabaseHelper(this)
+        var events = dbHelper.getAllEvents()
+        if (events.isEmpty()) {
+            mockEvents.forEach { dbHelper.insertEvent(it) }
+            events = dbHelper.getAllEvents()
+        }
+
         setContent {
             MobileApps20252301321062Theme {
-                TicketMasterApp()
+                TicketMasterApp(events = events, dbHelper = dbHelper)
             }
         }
     }
 }
 
 @Composable
-fun TicketMasterApp() {
+fun TicketMasterApp(events: List<Event>, dbHelper: DatabaseHelper) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "eventList") {
         composable("eventList") {
-            EventListScreen(navController)
+            EventListScreen(navController, events)
         }
         composable("eventDetails/{eventId}") { backStackEntry ->
             val eventId = backStackEntry.arguments?.getString("eventId")
-            val event = mockEvents.find { it.id == eventId }
+            val event = events.find { it.id == eventId }
             if (event != null) {
                 EventDetailsScreen(navController, event)
             }
         }
         composable("generateTicket/{eventId}") { backStackEntry ->
             val eventId = backStackEntry.arguments?.getString("eventId")
-            val event = mockEvents.find { it.id == eventId }
+            val event = events.find { it.id == eventId }
             if (event != null) {
-                GenerateTicketScreen(navController, event)
+                GenerateTicketScreen(navController, event, dbHelper)
             }
+        }
+        composable("myTickets") {
+            MyTicketsScreen(navController, dbHelper)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventListScreen(navController: NavHostController) {
+fun EventListScreen(navController: NavHostController, events: List<Event>) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -113,6 +140,15 @@ fun EventListScreen(navController: NavHostController) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { navController.navigate("myTickets") },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                // Fallback to simple Text if icon is missing or causing issues, or use a standard material3 icon
+                 Text("🎫", fontSize = 24.sp)
+            }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -122,7 +158,7 @@ fun EventListScreen(navController: NavHostController) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(mockEvents) { event ->
+            items(events) { event ->
                 EventCard(event = event) {
                     navController.navigate("eventDetails/${event.id}")
                 }
@@ -206,9 +242,23 @@ fun EventDetailsScreen(navController: NavHostController, event: Event) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GenerateTicketScreen(navController: NavHostController, event: Event) {
-    val qrCodeBitmap = remember {
-        generateQRCode("Event: ${event.name}, Seat: A1, ID: ${java.util.UUID.randomUUID()}")
+fun GenerateTicketScreen(navController: NavHostController, event: Event, dbHelper: DatabaseHelper) {
+    var seat by remember { mutableStateOf("") }
+    var qrCodeBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(Unit) {
+        val takenSeats = dbHelper.getTakenSeats(event.id)
+        var newSeat = "Seat ${Random.nextInt(1, 1000)}"
+        while (takenSeats.contains(newSeat)) {
+            newSeat = "Seat ${Random.nextInt(1, 1000)}"
+        }
+        seat = newSeat
+
+        val ticketId = UUID.randomUUID().toString()
+        val qrContent = "TicketID: $ticketId, Event: ${event.name}, Seat: $seat"
+        
+        dbHelper.insertTicket(ticketId, event.id, seat, qrContent)
+        qrCodeBitmap = generateQRCode(qrContent)
     }
 
     Scaffold(
@@ -239,25 +289,84 @@ fun GenerateTicketScreen(navController: NavHostController, event: Event) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = event.name,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Date: ${event.date}", style = MaterialTheme.typography.bodyLarge)
-            Text(text = "Location: ${event.location}", style = MaterialTheme.typography.bodyLarge)
-            Text(text = "Seat: A1", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            if (qrCodeBitmap != null) {
-                Image(
-                    bitmap = qrCodeBitmap.asImageBitmap(),
-                    contentDescription = "QR Code",
-                    modifier = Modifier.size(250.dp)
+            if (seat.isNotEmpty()) {
+                Text(
+                    text = event.name,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "Date: ${event.date}", style = MaterialTheme.typography.bodyLarge)
+                Text(text = "Location: ${event.location}", style = MaterialTheme.typography.bodyLarge)
+                Text(text = "Seat: $seat", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                if (qrCodeBitmap != null) {
+                    Image(
+                        bitmap = qrCodeBitmap!!.asImageBitmap(),
+                        contentDescription = "QR Code",
+                        modifier = Modifier.size(250.dp)
+                    )
+                }
+            } else {
+                Text("Generating Ticket...")
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyTicketsScreen(navController: NavHostController, dbHelper: DatabaseHelper) {
+    val tickets = remember { dbHelper.getAllTickets() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("My Tickets", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(tickets) { ticket ->
+                TicketCard(ticket = ticket)
+            }
+        }
+    }
+}
+
+@Composable
+fun TicketCard(ticket: Ticket) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = ticket.eventName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "Date: ${ticket.eventDate}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Seat: ${ticket.seat}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
     }
 }
