@@ -103,6 +103,24 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.close()
     }
 
+    fun updateTicket(ticketId: String, newSeat: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COLUMN_TICKET_SEAT, newSeat)
+        }
+        db.update(TABLE_TICKETS, values, "$COLUMN_TICKET_ID = ?", arrayOf(ticketId))
+        db.close()
+    }
+
+    fun updateEventDate(eventId: String, newDate: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COLUMN_EVENT_DATE, newDate)
+        }
+        db.update(TABLE_EVENTS, values, "$COLUMN_EVENT_ID = ?", arrayOf(eventId))
+        db.close()
+    }
+
     fun getAllTickets(): List<Ticket> {
         val ticketList = ArrayList<Ticket>()
         val selectQuery = "SELECT t.*, e.${COLUMN_EVENT_NAME}, e.${COLUMN_EVENT_DATE} FROM $TABLE_TICKETS t JOIN $TABLE_EVENTS e ON t.$COLUMN_TICKET_EVENT_ID = e.$COLUMN_EVENT_ID"
