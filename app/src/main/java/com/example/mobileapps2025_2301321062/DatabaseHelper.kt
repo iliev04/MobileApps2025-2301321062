@@ -121,6 +121,12 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.close()
     }
 
+    fun deleteTicket(ticketId: String) {
+        val db = this.writableDatabase
+        db.delete(TABLE_TICKETS, "$COLUMN_TICKET_ID = ?", arrayOf(ticketId))
+        db.close()
+    }
+
     fun getAllTickets(): List<Ticket> {
         val ticketList = ArrayList<Ticket>()
         val selectQuery = "SELECT t.*, e.${COLUMN_EVENT_NAME}, e.${COLUMN_EVENT_DATE} FROM $TABLE_TICKETS t JOIN $TABLE_EVENTS e ON t.$COLUMN_TICKET_EVENT_ID = e.$COLUMN_EVENT_ID"

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,9 +50,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -323,14 +328,20 @@ fun GenerateTicketScreen(navController: NavHostController, event: Event, dbHelpe
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyTicketsScreen(navController: NavHostController, dbHelper: DatabaseHelper) {
-    // Force refresh when navigating back
-    var refreshTrigger by remember { mutableStateOf(0) }
-    LaunchedEffect(navController.currentBackStackEntry) {
-        refreshTrigger++
+    var tickets by remember { mutableStateOf(emptyList<Ticket>()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                tickets = dbHelper.getAllTickets()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
-    
-    // Use refreshTrigger to re-fetch tickets
-    val tickets = remember(refreshTrigger) { dbHelper.getAllTickets() }
 
     Scaffold(
         topBar = {
@@ -391,13 +402,14 @@ fun TicketCard(ticket: Ticket, onClick: () -> Unit) {
 fun TicketDetailsScreen(navController: NavHostController, ticket: Ticket, event: Event?, dbHelper: DatabaseHelper) {
     val qrCodeBitmap = remember(ticket.qrCode) { generateQRCode(ticket.qrCode) }
     
-    var showDialog by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     var newSeat by remember { mutableStateOf(ticket.seat) }
     var newDate by remember { mutableStateOf(event?.date ?: "") }
 
-    if (showDialog) {
+    if (showUpdateDialog) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = { showUpdateDialog = false },
             title = { Text("Update Ticket") },
             text = {
                 Column {
@@ -418,22 +430,10 @@ fun TicketDetailsScreen(navController: NavHostController, ticket: Ticket, event:
                 TextButton(
                     onClick = {
                         dbHelper.updateTicket(ticket.id, newSeat)
-                        // Note: Updating date on the event affects all tickets for that event.
-                        // Assuming the user wants to change the date for this specific ticket,
-                        // but in this data model, date is tied to the Event.
-                        // If the user implies moving the ticket to another date (another event instance?),
-                        // that would require changing eventId or having event instances.
-                        // However, based on the request "change the date or the seat number",
-                        // and typical simple app logic, I will update the Event's date.
-                        // BEWARE: This changes the date for ALL tickets of this event.
-                        // If the intention was to just change display date for this ticket, we'd need to store date in Ticket.
-                        // But Ticket table doesn't store date (it joins Event).
-                        // Let's assume we update the Event date for simplicity as requested,
-                        // or better, let's add a logic to update the Event date in the DB.
                         if (event != null) {
                             dbHelper.updateEventDate(event.id, newDate)
                         }
-                        showDialog = false
+                        showUpdateDialog = false
                         navController.popBackStack() // Go back to refresh
                     }
                 ) {
@@ -441,7 +441,32 @@ fun TicketDetailsScreen(navController: NavHostController, ticket: Ticket, event:
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
+                TextButton(onClick = { showUpdateDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Ticket") },
+            text = { Text("Are you sure you want to delete this ticket? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        dbHelper.deleteTicket(ticket.id)
+                        showDeleteDialog = false
+                        navController.popBackStack() // Go back to list
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -503,8 +528,28 @@ fun TicketDetailsScreen(navController: NavHostController, ticket: Ticket, event:
             ActionButton(
                 text = "Update Ticket",
                 emoji = "✏️",
-                onClick = { showDialog = true }
+                onClick = { showUpdateDialog = true }
             )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = { showDeleteDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(text = "🗑️", fontSize = 28.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(text = "Delete Ticket", fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                }
+            }
         }
     }
 }
