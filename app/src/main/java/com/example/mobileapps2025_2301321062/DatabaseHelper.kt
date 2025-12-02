@@ -11,7 +11,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "TicketMaster.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 4 // Incremented version
 
         // Events Table
         const val TABLE_EVENTS = "events"
@@ -21,6 +21,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         const val COLUMN_EVENT_LOCATION = "location"
         const val COLUMN_EVENT_PRICE = "price"
         const val COLUMN_EVENT_DESCRIPTION = "description"
+        const val COLUMN_EVENT_EMOJI = "emoji"
 
         // Tickets Table
         const val TABLE_TICKETS = "tickets"
@@ -37,7 +38,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 + COLUMN_EVENT_DATE + " TEXT,"
                 + COLUMN_EVENT_LOCATION + " TEXT,"
                 + COLUMN_EVENT_PRICE + " TEXT,"
-                + COLUMN_EVENT_DESCRIPTION + " TEXT" + ")")
+                + COLUMN_EVENT_DESCRIPTION + " TEXT,"
+                + COLUMN_EVENT_EMOJI + " TEXT" + ")")
         db.execSQL(createEventsTable)
 
         val createTicketsTable = ("CREATE TABLE " + TABLE_TICKETS + "("
@@ -50,9 +52,13 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_EVENTS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_TICKETS")
-        onCreate(db)
+        if (oldVersion < 4) {
+            // Simple migration: Drop and recreate for development purposes
+            // In production, we would alter table
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_EVENTS")
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_TICKETS")
+            onCreate(db)
+        }
     }
 
     fun insertEvent(event: Event) {
@@ -64,6 +70,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(COLUMN_EVENT_LOCATION, event.location)
             put(COLUMN_EVENT_PRICE, event.price)
             put(COLUMN_EVENT_DESCRIPTION, event.description)
+            put(COLUMN_EVENT_EMOJI, event.emoji)
         }
         db.insert(TABLE_EVENTS, null, values)
         db.close()
@@ -77,13 +84,18 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         if (cursor.moveToFirst()) {
             do {
+                // Handle potential missing column if DB wasn't properly upgraded in some edge cases
+                val emojiIndex = cursor.getColumnIndex(COLUMN_EVENT_EMOJI)
+                val emoji = if (emojiIndex != -1) cursor.getString(emojiIndex) else "📅"
+                
                 val event = Event(
                     cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EVENT_ID)),
                     cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EVENT_NAME)),
                     cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EVENT_DATE)),
                     cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EVENT_LOCATION)),
                     cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EVENT_PRICE)),
-                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EVENT_DESCRIPTION))
+                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_EVENT_DESCRIPTION)),
+                    emoji
                 )
                 eventList.add(event)
             } while (cursor.moveToNext())
