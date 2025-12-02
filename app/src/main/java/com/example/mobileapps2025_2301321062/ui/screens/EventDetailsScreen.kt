@@ -91,7 +91,6 @@ fun EventDetailsScreen(navController: NavHostController, event: Event) {
                         try {
                             context.startActivity(browserIntent)
                         } catch (e2: Exception) {
-                            // No browser either, handle gracefully if needed
                         }
                     }
                 }
