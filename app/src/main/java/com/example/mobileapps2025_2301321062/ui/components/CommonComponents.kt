@@ -33,12 +33,21 @@ fun EventCard(event: Event, onClick: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(8.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = event.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "Date: ${event.date}", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "Location: ${event.location}", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "Price: ${event.price}", style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = event.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "Date: ${event.date}", style = MaterialTheme.typography.bodyMedium)
+                Text(text = "Location: ${event.location}", style = MaterialTheme.typography.bodyMedium)
+                Text(text = "Price: ${event.price}", style = MaterialTheme.typography.bodyMedium)
+            }
+            Text(text = event.emoji, fontSize = 28.sp)
         }
     }
 }

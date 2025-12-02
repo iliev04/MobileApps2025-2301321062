@@ -6,5 +6,6 @@ data class Event(
     val date: String,
     val location: String,
     val price: String,
-    val description: String
+    val description: String,
+    val emoji: String
 )

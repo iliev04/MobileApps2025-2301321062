@@ -1,8 +1,12 @@
 package com.example.mobileapps2025_2301321062.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,6 +21,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -26,6 +31,7 @@ import com.example.mobileapps2025_2301321062.ui.components.ActionButton
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailsScreen(navController: NavHostController, event: Event) {
+    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -64,6 +70,31 @@ fun EventDetailsScreen(navController: NavHostController, event: Event) {
                 text = "Generate Ticket",
                 emoji = "🎟️",
                 onClick = { navController.navigate("generateTicket/${event.id}") }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ActionButton(
+                text = "Get Directions",
+                emoji = "🗺️",
+                onClick = {
+                    val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(event.location)}")
+                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                    mapIntent.setPackage("com.google.android.apps.maps")
+                    try {
+                        context.startActivity(mapIntent)
+                    } catch (e: Exception) {
+                        val browserIntent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${Uri.encode(event.location)}")
+                        )
+                        try {
+                            context.startActivity(browserIntent)
+                        } catch (e2: Exception) {
+                            // No browser either, handle gracefully if needed
+                        }
+                    }
+                }
             )
         }
     }
