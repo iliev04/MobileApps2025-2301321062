@@ -11,9 +11,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "TicketMaster.db"
-        private const val DATABASE_VERSION = 4 // Incremented version
+        private const val DATABASE_VERSION = 5
 
-        // Events Table
         const val TABLE_EVENTS = "events"
         const val COLUMN_EVENT_ID = "id"
         const val COLUMN_EVENT_NAME = "name"
@@ -23,7 +22,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         const val COLUMN_EVENT_DESCRIPTION = "description"
         const val COLUMN_EVENT_EMOJI = "emoji"
 
-        // Tickets Table
         const val TABLE_TICKETS = "tickets"
         const val COLUMN_TICKET_ID = "id"
         const val COLUMN_TICKET_EVENT_ID = "event_id"
@@ -52,9 +50,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 4) {
-            // Simple migration: Drop and recreate for development purposes
-            // In production, we would alter table
+        if (oldVersion < 5) {
             db.execSQL("DROP TABLE IF EXISTS $TABLE_EVENTS")
             db.execSQL("DROP TABLE IF EXISTS $TABLE_TICKETS")
             onCreate(db)
@@ -84,7 +80,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         if (cursor.moveToFirst()) {
             do {
-                // Handle potential missing column if DB wasn't properly upgraded in some edge cases
                 val emojiIndex = cursor.getColumnIndex(COLUMN_EVENT_EMOJI)
                 val emoji = if (emojiIndex != -1) cursor.getString(emojiIndex) else "📅"
                 

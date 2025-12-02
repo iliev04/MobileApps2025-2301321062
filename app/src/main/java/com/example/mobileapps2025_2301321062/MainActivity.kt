@@ -63,7 +63,6 @@ fun TicketMasterApp(events: List<Event>, dbHelper: DatabaseHelper) {
         }
         composable("ticketDetails/{ticketId}") { backStackEntry ->
             val ticketId = backStackEntry.arguments?.getString("ticketId")
-            // Fetching all tickets here is not efficient for production but works for this scope
             val ticket = dbHelper.getAllTickets().find { it.id == ticketId }
             val event = events.find { it.id == ticket?.eventId }
             if (ticket != null) {

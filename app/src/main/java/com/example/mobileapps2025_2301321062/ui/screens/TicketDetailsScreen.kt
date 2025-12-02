@@ -82,7 +82,7 @@ fun TicketDetailsScreen(navController: NavHostController, ticket: Ticket, event:
                             dbHelper.updateEventDate(event.id, newDate)
                         }
                         showUpdateDialog = false
-                        navController.popBackStack() // Go back to refresh
+                        navController.popBackStack()
                     }
                 ) {
                     Text("Save")
@@ -106,7 +106,7 @@ fun TicketDetailsScreen(navController: NavHostController, ticket: Ticket, event:
                     onClick = {
                         dbHelper.deleteTicket(ticket.id)
                         showDeleteDialog = false
-                        navController.popBackStack() // Go back to list
+                        navController.popBackStack()
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {

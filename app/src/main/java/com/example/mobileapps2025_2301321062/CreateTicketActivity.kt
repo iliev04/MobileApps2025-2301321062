@@ -124,13 +124,6 @@ fun CreateTicketScreen() {
                 label = { Text("Location") },
                 modifier = Modifier.fillMaxWidth()
             )
-
-            Button(
-                onClick = { /* TODO: Save ticket logic */ },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Create Ticket")
-            }
         }
     }
     
